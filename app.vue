@@ -36,6 +36,28 @@ const router = useRouter()
 const isMounted = useMounted()
 const iframe = ref<HTMLIFrameElement | null>(null)
 
+const showEditor = computed({
+  get() {
+    return !('disable_editor' in route.query)
+  },
+  set(val) {
+    const query = route.query
+    if (val) {
+      delete query.disable_editor
+    } else {
+      query.disable_editor = ''
+    }
+    router.replace({
+      query
+    })
+    if (import.meta.client && val) {
+      setTimeout(() => {
+        location.reload()
+      }, 0)
+    }
+  }
+})
+
 const htmlBase64 = computed({
   get() {
     return (route.query.html as string) || ''
@@ -43,6 +65,7 @@ const htmlBase64 = computed({
   set(val) {
     router.replace({
       query: {
+        ...route.query,
         html: val
       }
     })
@@ -101,13 +124,20 @@ function bytesToBase64(bytes: Uint8Array) {
 
 <template>
   <div w-screen h-screen>
-    <div p-3 flex="~ justify-center ">
-      <UButton @click="html = editor?.getValue() || ''"
-        >Update HTML Preview</UButton
+    <div p-3 flex="~ items-center">
+      <UButton v-if="showEditor" mr-3 @click="html = editor?.getValue() || ''"
+        >Rerender HTML</UButton
       >
+      <UTooltip text="Show Editor" :popper="{ arrow: true }">
+        <UToggle
+          on-icon="i-heroicons-check-20-solid"
+          off-icon="i-heroicons-x-mark-20-solid"
+          v-model="showEditor"
+        />
+      </UTooltip>
     </div>
     <div h-full flex="~ items-start">
-      <div flex-1 h-full id="editor"></div>
+      <div flex-1 h-full id="editor" v-show="showEditor"></div>
       <Transition>
         <iframe
           v-if="showIframe"
