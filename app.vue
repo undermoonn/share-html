@@ -1,4 +1,7 @@
 <script lang="ts" setup>
+import { base64ToBytes, bytesToBase64 } from './utils/base64'
+import { type Editor, getEditor } from './utils/monaco'
+import { useMounted } from './composables/useMounted'
 import CopyToShare from './components/CopyToShare.vue'
 
 const route = useRoute()
@@ -68,7 +71,15 @@ watch([html, isMounted], ([_html, _isMounted]) => {
   }, 0)
 })
 
-let editor: Awaited<ReturnType<typeof getEditor>> | null = null
+onMounted(() => {
+  if (!html.value) {
+    html.value = `<body>
+    Welcome to share html! You can write html code there and share web link with others :)
+</body>`
+  }
+})
+
+let editor: Editor | null = null
 
 if (isRenderEditorOnStart) {
   getEditor(() => {
@@ -78,91 +89,13 @@ if (isRenderEditorOnStart) {
     e?.setValue(html.value)
   })
 }
-
-// --------------------
-
-async function getEditor(onEditorCreate: () => void) {
-  if (import.meta.server) {
-    return null
-  }
-
-  const [
-    monaco,
-    { useMonacoEx },
-    { default: editorWorker },
-    { default: htmlWorker },
-    { default: tsWorker },
-    { default: cssWorker }
-  ] = await Promise.all([
-    import('monaco-editor'),
-    import('monaco-editor-ex'),
-    // @ts-expect-error
-    import('monaco-editor/esm/vs/editor/editor.worker?worker'),
-    // @ts-expect-error
-    import('monaco-editor/esm/vs/language/html/html.worker?worker'),
-    // @ts-expect-error
-    import('monaco-editor/esm/vs/language/typescript/ts.worker?worker'),
-    // @ts-expect-error
-    import('monaco-editor/esm/vs/language/css/css.worker?worker')
-  ])
-
-  useMonacoEx(monaco)
-
-  self.MonacoEnvironment = {
-    getWorker(_, label) {
-      if (label === 'css' || label === 'scss' || label === 'less') {
-        return new cssWorker()
-      }
-      if (label === 'html' || label === 'handlebars' || label === 'razor') {
-        return new htmlWorker()
-      }
-      if (label === 'typescript' || label === 'javascript') {
-        return new tsWorker()
-      }
-      return new editorWorker()
-    }
-  }
-
-  monaco.languages.register({ id: 'html' })
-  monaco.languages.register({ id: 'javascript' })
-  monaco.languages.register({ id: 'typescript' })
-  monaco.languages.register({ id: 'css' })
-
-  const editor = monaco.editor.create(document.getElementById('editor')!, {
-    language: 'html'
-  })
-
-  onEditorCreate()
-
-  return editor
-}
-
-function base64ToBytes(base64: string) {
-  const binString = atob(base64)
-  // @ts-expect-error
-  return Uint8Array.from(binString, (m) => m.codePointAt(0))
-}
-
-function bytesToBase64(bytes: Uint8Array) {
-  const binString = Array.from(bytes, (byte) =>
-    String.fromCodePoint(byte)
-  ).join('')
-  return btoa(binString)
-}
-
-function useMounted() {
-  const isMounted = ref(false)
-  onMounted(() => {
-    isMounted.value = true
-  })
-  return isMounted
-}
 </script>
 
 <template>
   <div class="w-screen h-screen flex flex-col">
     <div
-      class="p-3 flex items-center gap-3 justify-center b-b-neutral b-1 b-solid b-op-30"
+      class="p-3 flex items-center justify-between b-b-1 b-solid b-op-30"
+      style="border-color: var(--border-color)"
     >
       <button @click="showEditor = !showEditor" class="group">
         <i
@@ -192,7 +125,8 @@ function useMounted() {
           v-if="showIframe"
           ref="iframe"
           src="javascript:void(0);"
-          class="h-full flex-1 b-l-neutral b-1 b-solid b-op-30"
+          class="h-full flex-1 b-l-1 b-solid b-op-30"
+          style="border-color: var(--border-color)"
         ></iframe>
       </Transition>
     </div>
@@ -200,6 +134,9 @@ function useMounted() {
 </template>
 
 <style>
+:root {
+  --border-color: rgba(27, 31, 35, 0.15);
+}
 .v-enter-active,
 .v-leave-active {
   transition: opacity 0.3s ease;
@@ -211,46 +148,46 @@ function useMounted() {
 }
 
 button {
-  align-items: center;
   appearance: none;
-  background-color: #fcfcfd;
-  border-radius: 4px;
-  border-width: 0;
-  box-shadow: rgba(45, 35, 66, 0.4) 0 2px 4px,
-    rgba(45, 35, 66, 0.3) 0 7px 13px -3px, #d6d6e7 0 -3px 0 inset;
+  background-color: #fafbfc;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: rgba(27, 31, 35, 0.04) 0 1px 0,
+    rgba(255, 255, 255, 0.25) 0 1px 0 inset;
   box-sizing: border-box;
-  color: #36395a;
+  color: #24292e;
   cursor: pointer;
-  display: inline-flex;
-  font-family: monospace;
-  height: 30px;
-  justify-content: center;
-  line-height: 1;
+  display: inline-block;
+  font-family: -apple-system, system-ui, 'Segoe UI', Helvetica, Arial,
+    sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
   list-style: none;
-  overflow: hidden;
-  padding-left: 12px;
-  padding-right: 12px;
+  padding: 6px 16px;
   position: relative;
-  text-align: left;
-  text-decoration: none;
-  transition: box-shadow 0.15s, transform 0.15s;
+  transition: background-color 0.2s cubic-bezier(0.3, 0, 0.5, 1);
   user-select: none;
   -webkit-user-select: none;
   touch-action: manipulation;
+  vertical-align: middle;
   white-space: nowrap;
-  will-change: box-shadow, transform;
-  font-size: 16px;
+  word-wrap: break-word;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 button:disabled {
   opacity: 0.3;
 }
 button:hover:not(:disabled) {
-  box-shadow: rgba(45, 35, 66, 0.4) 0 4px 8px,
-    rgba(45, 35, 66, 0.3) 0 7px 13px -3px, #d6d6e7 0 -3px 0 inset;
-  transform: translateY(-2px);
+  background-color: #f3f4f6;
+  text-decoration: none;
+  transition-duration: 0.1s;
 }
 button:active:not(:disabled) {
-  box-shadow: #d6d6e7 0 3px 7px inset;
-  transform: translateY(2px);
+  background-color: #edeff2;
+  box-shadow: rgba(225, 228, 232, 0.2) 0 1px 0 inset;
+  transition: none 0s;
 }
 </style>

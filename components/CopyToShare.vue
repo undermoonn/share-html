@@ -3,11 +3,12 @@ const { isShared, share } = useShare()
 
 function useShare() {
   const isShared = ref(false)
+
   function share() {
     const url = new URL(location.href)
     url.searchParams.set('mode', 'share')
     const shareUrl = url.toString()
-    //
+    navigator.clipboard.writeText(shareUrl)
     isShared.value = true
     setTimeout(() => {
       isShared.value = false
@@ -19,7 +20,7 @@ function useShare() {
 </script>
 
 <template>
-  <button class="mr-3 inline-block group" @click="share">
+  <button class="mr-3 group" @click="share">
     <i
       :class="[
         isShared
